@@ -62,8 +62,18 @@ public class TTTPServer {
         String inputLine;
         while ((inputLine = in.readLine()) != null) {
           ArrayList<Object> contactInfo = new ArrayList<>();
-          contactInfo.add("tcp");
-          contactInfo.add(client);
+          boolean has = false;
+          for (Object object : playerContacts.values()) {
+            if (client == ((ArrayList) object).get(1)) {
+              has = true;
+              contactInfo = (ArrayList) object;
+              break;
+            }
+          }
+          if (!has) {
+            contactInfo.add("tcp");
+            contactInfo.add(client);
+          }
           String returnMessage = getReturnMessage(inputLine, contactInfo);
           if (returnMessage.isEmpty()) {
             continue;
@@ -105,9 +115,18 @@ public class TTTPServer {
       int port = pack.getPort();
       String sentence = new String(pack.getData());
       ArrayList<Object> contactInfo = new ArrayList<>();
-      contactInfo.add("udp");
-      contactInfo.add(sock);
-      contactInfo.add(pack);
+      boolean changed = false;
+      for (Object object : playerContacts.values()) {
+        if (sock == ((ArrayList) object).get(1)) {
+          changed = true;
+          contactInfo = (ArrayList) object;
+        }
+      }
+      if (!changed) {
+        contactInfo.add("udp");
+        contactInfo.add(sock);
+        contactInfo.add(pack);
+      }
       String returnMessage = getReturnMessage(sentence, contactInfo);
       if (returnMessage.isEmpty()) {
         return;
@@ -184,15 +203,16 @@ public class TTTPServer {
         if (splitMessage.length < 1) {
           break;
         }
-        if (!playerContacts.containsKey(splitMessage[1])) {
+        String pname = (String) contactInfo.get(contactInfo.size() - 1);
+        if (!playerContacts.containsKey(pname)) {
           break;
         }
 
-        // CID
+        // 
         ArrayList<Integer> delete = new ArrayList<>();
         for (Game game : games.values()) {
-          if (game.p1.equals(splitMessage[1]) || game.p2.equals(splitMessage[2])) {
-            String winner = game.p1.equals(splitMessage[1]) ? game.p2 : game.p1;
+          if (game.p1.equals(pname) || game.p2.equals(pname)) {
+            String winner = game.p1.equals(pname) ? game.p2 : game.p1;
             contactPlayer(winner, "TERM " + Integer.toString(game.GID) + " " + winner);
             delete.add(game.GID);
           }
@@ -200,7 +220,7 @@ public class TTTPServer {
         for (Integer gid : delete) {
           games.remove(gid);
         }
-        playerContacts.remove(splitMessage[1]);
+        playerContacts.remove(pname);
 
         break;
       case "HELO":
@@ -214,6 +234,7 @@ public class TTTPServer {
         // VERSION CID
         returnMessage = "SESS 1 " + Integer.toString(nextAvailableSession);
         nextAvailableSession++;
+        contactInfo.add(splitMessage[2]);
         playerContacts.put(splitMessage[2], contactInfo);
 
         break;
@@ -229,20 +250,18 @@ public class TTTPServer {
         if (!games.containsKey(GID)) {
           break;
         }
-        if (!playerContacts.containsKey(splitMessage[2])) {
-          break;
-        }
         Game joiningGame = games.get(GID);
         if (!joiningGame.p2.isEmpty()) {
           break;
         }
 
-        // GID CID
-        contactPlayer(splitMessage[2], "JOND " + splitMessage[2] + " " + Integer.toString(joiningGame.GID));
+        // GID
+        String joiningPlayer = (String) contactInfo.get(contactInfo.size() - 1);
+        contactPlayer(joiningPlayer, "JOND " + joiningPlayer + " " + Integer.toString(joiningGame.GID));
         String yrmv = "YRMV " + joiningGame.GID + " " + joiningGame.p1;
         returnMessage = yrmv;
         contactPlayer(joiningGame.p1, yrmv);
-        joiningGame.p2 = splitMessage[2];
+        joiningGame.p2 = joiningPlayer;
 
         break;
       case "LIST":
@@ -257,6 +276,7 @@ public class TTTPServer {
         } catch (Exception e) {
           break;
         }
+        String playerName = (String) contactInfo.get(contactInfo.size() - 1);
         int move = 0;
         boolean useCoords = false;
         int[] coords = new int[2];
@@ -275,13 +295,13 @@ public class TTTPServer {
         if (!games.containsKey(GID)) {
           break;
         }
-        if (!playerContacts.containsKey(splitMessage[3])) {
+        if (!playerContacts.containsKey(playerName)) {
           break;
         }
 
-        // GID MOVE CID
+        // GID MOVE
         Game playingGame = games.get(GID);
-        if (!playingGame.isTurn(splitMessage[3])) {
+        if (!playingGame.isTurn(playerName)) {
           break;
         }
         if (playingGame.p2.isEmpty()) {
@@ -323,16 +343,17 @@ public class TTTPServer {
         } catch (Exception e) {
           break;
         }
-        if (!playerContacts.containsKey(splitMessage[2])) {
+        String mName = (String) contactInfo.get(contactInfo.size() - 1);
+        if (!playerContacts.containsKey(mName)) {
           break;
         }
         Game g = games.get(GID);
-        if (!splitMessage[2].equals(g.p1) && !splitMessage[2].equals(g.p2)) {
+        if (!mName.equals(g.p1) && !mName.equals(g.p2)) {
           break;
         }
 
-        // GID CID
-        String winner = g.p1.equals(splitMessage[2]) ? g.p2 : g.p1;
+        // GID
+        String winner = g.p1.equals(mName) ? g.p2 : g.p1;
         contactPlayer(g.p1, "TERM " + winner);
         contactPlayer(g.p2, "TERM " + winner);
         games.remove(GID);

@@ -158,7 +158,9 @@ public class TTTPServer {
 
   public static String getReturnMessage(String incomingMessage, ArrayList<Object> contactInfo) {
     incomingMessage = incomingMessage.replaceAll("\u0000", "");
-    System.out.println(incomingMessage);
+    if (log) {
+      System.out.println(incomingMessage);
+    }
     String[] splitMessage = incomingMessage.split("\\s+");
     if (splitMessage.length <= 0) {
       return "";
@@ -190,7 +192,7 @@ public class TTTPServer {
         ArrayList<Integer> delete = new ArrayList<>();
         for (Game game : games.values()) {
           if (game.p1.equals(splitMessage[1]) || game.p2.equals(splitMessage[2])) {
-            String winner = game.p1.equals(splitMessage[1]) ? game.p1 : game.p2;
+            String winner = game.p1.equals(splitMessage[1]) ? game.p2 : game.p1;
             contactPlayer(winner, "TERM " + Integer.toString(game.GID) + " " + winner);
             delete.add(game.GID);
           }
@@ -205,18 +207,14 @@ public class TTTPServer {
         if (splitMessage.length < 2) {
           break;
         }
+        if (playerContacts.containsKey(splitMessage[2])) {
+          break;
+        }
 
         // VERSION CID
         returnMessage = "SESS 1 " + Integer.toString(nextAvailableSession);
         nextAvailableSession++;
         playerContacts.put(splitMessage[2], contactInfo);
-        System.out.println("Put " + splitMessage[2]);
-        System.out.println(playerContacts.keySet().contains("TEST"));
-        for (String s : playerContacts.keySet()) {
-          for (char c : s.toCharArray()) {
-            System.out.print((int) c + " ");
-          }
-        }
 
         break;
       case "JOIN":
@@ -277,21 +275,29 @@ public class TTTPServer {
         if (!games.containsKey(GID)) {
           break;
         }
+        if (!playerContacts.containsKey(splitMessage[3])) {
+          break;
+        }
 
-        // GID MOVE
+        // GID MOVE CID
         Game playingGame = games.get(GID);
+        if (!playingGame.isTurn(splitMessage[3])) {
+          break;
+        }
         if (playingGame.p2.isEmpty()) {
           break;
         }
+        boolean wasValidMove;
         if (useCoords) {
-          playingGame.playMove(coords[0], coords[1]);
+          wasValidMove = playingGame.playMove(coords[0], coords[1]);
         } else {
-          playingGame.playMove(move);
+          wasValidMove = playingGame.playMove(move);
         }
         if (playingGame.isStalemate()) {
           contactPlayer(playingGame.p1, "TERM KTHXBYE");
           contactPlayer(playingGame.p2, "TERM KTHXBYE");
           games.remove(GID);
+          break;
         } else if (playingGame.isOver()) {
           String winner = playingGame.p1Turn ? playingGame.p2 : playingGame.p1;
           contactPlayer(playingGame.p1, "TERM " + winner);
@@ -300,6 +306,11 @@ public class TTTPServer {
         } else {
           contactPlayer(playingGame.p1, playingGame.toString());
           contactPlayer(playingGame.p2, playingGame.toString());
+        }
+        if (wasValidMove) {
+          String s = "YRMV " + playingGame.GID + " " + (playingGame.p1Turn ? playingGame.p1 : playingGame.p2);
+          contactPlayer(playingGame.p1, s);
+          contactPlayer(playingGame.p2, s);
         }
 
         break;
@@ -387,7 +398,7 @@ public class TTTPServer {
     }
     
     public boolean playMove(int x, int y) {
-      return playMove((x - 1) * 3 + y);
+      return playMove((y - 1) * 3 + x);
     }
 
     public boolean playMove(int place) {
@@ -456,6 +467,9 @@ public class TTTPServer {
       boardString.append("BORD ");
       boardString.append(GID);
       boardString.append(" " + p1);
+      if (p2.isEmpty()) {
+        return boardString.toString();
+      }
       boardString.append(" " + p2 + " ");
       boardString.append(p1Turn ? p1 : p2);
       boardString.append(" ");

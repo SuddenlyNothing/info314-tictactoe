@@ -38,7 +38,7 @@ public class TTTPServer {
       try (
         ServerSocket server = new ServerSocket(PORT);
       ) {
-        ExecutorService executorService = Executors.newFixedThreadPool(5);
+        ExecutorService executorService = Executors.newFixedThreadPool(10);
         while (true) {
           Socket client = server.accept();
           if (log) {
@@ -93,7 +93,7 @@ public class TTTPServer {
       try (
         DatagramSocket sock = new DatagramSocket(PORT);
         ) {
-          ExecutorService executorService = Executors.newFixedThreadPool(5);
+          ExecutorService executorService = Executors.newFixedThreadPool(10);
           while(true) {
             byte[] receiveData = new byte[BUFFERSIZE];
             DatagramPacket receivePacket = new DatagramPacket(receiveData, receiveData.length);

@@ -419,7 +419,7 @@ public class TTTPServer {
     }
     
     public boolean playMove(int x, int y) {
-      return playMove((y - 1) * 3 + x);
+      return playMove(((4 - y) - 1) * 3 + x);
     }
 
     public boolean playMove(int place) {
